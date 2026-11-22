@@ -1,0 +1,115 @@
+WEBVTT
+
+00:00:00.230 --> 00:00:10.960
+Hello, everyone. Today we are going to show the demo we are doing in our SHINE Lab on Wi-Fi 802.11ah, otherwise known as Wi-Fi HaLow.
+
+00:00:11.750 --> 00:00:17.260
+This is our access point side with monitoring and the sniffer.
+
+00:00:18.340 --> 00:00:22.130
+These are our stations. We have six stations.
+
+00:00:23.460 --> 00:00:29.660
+All the radio devices are running Morse Micro, MM6108 chips.
+
+00:00:30.830 --> 00:00:37.620
+On the access point side, this access point is connected to a computer based on Raspberry Pi.
+
+00:00:37.620 --> 00:00:50.170
+And the Raspberry Pi is responsible for pushing the TWT schedules to the access point which will then be transmitted to the stations through the TWT elements.
+
+00:00:50.460 --> 00:01:01.000
+The stations read those TWT elements and load the schedule into their radio chips, so each station sends its uplink only in its own service period.
+
+00:01:04.930 --> 00:01:07.980
+We have another radio running as a sniffer.
+
+00:01:08.130 --> 00:01:15.580
+The sniffer listens to everything on the channel and checks that each station's uplink lands inside its own service period.
+
+00:01:22.010 --> 00:01:30.740
+The Wi-Fi HaLow runs on around 900 MHz, so the antennas are a bit large for that frequency band.
+
+00:01:30.740 --> 00:01:34.950
+We have a dashboard monitoring everything about the network.
+
+00:01:34.970 --> 00:01:41.290
+We can see the RSSI of all the stations, the throughput of all the stations.
+
+00:01:41.290 --> 00:01:48.110
+Right now, the TWT schedule is that every station has their own service period.
+
+00:01:48.780 --> 00:01:55.620
+So every service period in a cycle of one second is going on and off and on and off.
+
+00:01:55.680 --> 00:01:58.300
+We can also see it through the blinking LEDs.
+
+00:01:58.300 --> 00:02:04.960
+So whenever a station enters its service period, it turns on the blue LED.
+
+00:02:04.960 --> 00:02:15.940
+So we can see the blue LEDs going in sequence, which is this exact TWT schedule being applied on them.
+
+00:02:16.290 --> 00:02:21.230
+Now, let's switch to a different configuration of the TWT.
+
+00:02:21.230 --> 00:02:26.320
+In this configuration, we would have two stations share one service period.
+
+00:02:26.320 --> 00:02:30.440
+So we would have three groups having two stations in each group.
+
+00:02:30.440 --> 00:02:37.130
+Here we can see the stations are already switching, and they're sharing two of the stations sharing one service period.
+
+00:02:37.180 --> 00:02:44.820
+This caused the throughput to drop a little bit because now two stations have to contend in one service period.
+
+00:02:45.130 --> 00:02:49.160
+And we can see that the LEDs are going off, turning on in pairs.
+
+00:02:49.160 --> 00:02:55.170
+So five and six are turning on their LEDs at the same time because they're in the same service period.
+
+00:02:55.170 --> 00:03:01.570
+So are one, two, and three, four.
+
+00:03:04.310 --> 00:03:11.120
+We can again switch to a different configuration where all the stations will share one service period.
+
+00:03:12.630 --> 00:03:20.800
+This would significantly drop the throughput as all the stations will be contending for the channel together.
+
+00:03:21.410 --> 00:03:27.640
+And we can see the throughput has dropped, and they're all in one service period.
+
+00:03:29.860 --> 00:03:34.220
+And all of the blue LEDs are flashing together.
+
+00:03:35.110 --> 00:03:42.360
+Each switch is made by the access point alone: it sends every station its new schedule over the air, and none of them disconnects.
+
+00:03:44.940 --> 00:03:54.130
+Through this dashboard, we can monitor all the network parameters from both the access point side and the sniffer side.
+
+00:03:54.210 --> 00:04:02.450
+So this dashboard acts as a one-stop shop to monitor the whole network and switch on different configurations.
+
+00:04:03.300 --> 00:04:09.000
+So I'll go back to the configuration one where we have all the stations running their own service period.
+
+00:04:17.480 --> 00:04:20.560
+And the throughput is back up again.
+
+00:04:22.200 --> 00:04:30.770
+We can also verify if the uplink is within the service period.
+
+00:04:35.990 --> 00:04:39.650
+So each shaded region is the service period given by the access point,
+
+00:04:39.650 --> 00:04:44.090
+and these vertical bars are the data packets in that service period.
+
+00:04:44.090 --> 00:04:53.270
+So the bars being inside the shaded box confirms that the stations are following the schedules given to them.

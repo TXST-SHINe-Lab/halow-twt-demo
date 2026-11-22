@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HaLow TWT Testbed: AP-Driven Target Wake Time on Wi-Fi HaLow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* standalone page: what the artifact host used to supply */
+:root { color-scheme: light; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+/* Layout: one long reading column (~68ch) with figures allowed to run wider; the bench deck's look:
+   navy ink on paper, amber = wake time, blue-teal = interval, gold = duration, green = what we changed,
+   and the dashboard's own indigo (the AP's view) and teal (what the air shows). */
+:root {
+  --paper:#f2f0ea; --card:#fbfaf6; --ink:#16232f; --ink2:#46525d; --ink3:#6c7680; --line:#d9d5ca;
+  --navy:#16232f; --navy-ink:#f2f0ea; --navy-dim:#9fb0be;
+  --wake:#b0601c; --ivl:#1f7489; --dur:#94720f; --ours:#1c8a72; --sealed:#e2ddd1; --sealed-ink:#6a6458;
+  --ap:#5b4bd6; --air:#0d8f8f; --band:#e8e4d8; --good:#2f8a4e;
+  --bad:#b3412f; --bad-wash:#f6e4de; --good-wash:#e2f0e6; --ours-wash:#e1efea;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#8c5a2b;
+  --on-navy-wake:#e69b5d; --on-navy-ivl:#6cc3d6; --on-navy-dur:#e2c25e; --on-navy-ap:#a99cf5; --on-navy-air:#4fd6d6;
+  --navy-tint:rgba(255,255,255,0.08); --navy-tint-2:rgba(255,255,255,0.15); --navy-edge:rgba(255,255,255,0.15);
+  --f-display:"Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper:#0f1821; --card:#16222d; --ink:#ebe8df; --ink2:#b4bdc5; --ink3:#8a96a1; --line:#2a3743;
+  --navy:#09111a; --navy-ink:#ebe8df; --navy-dim:#8a9cab;
+  --wake:#e69b5d; --ivl:#5bb7cd; --dur:#dcbd5a; --ours:#3cbfa2; --sealed:#27313a; --sealed-ink:#a7a193;
+  --ap:#8b7bf0; --air:#2fc4c4; --band:#1f2c37; --good:#5cc27f;
+  --bad:#e27a64; --bad-wash:#3a2420; --good-wash:#1b3326; --ours-wash:#173430;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#a97142;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper:#0f1821; --card:#16222d; --ink:#ebe8df; --ink2:#b4bdc5; --ink3:#8a96a1; --line:#2a3743;
+  --navy:#09111a; --navy-ink:#ebe8df; --navy-dim:#8a9cab;
+  --wake:#e69b5d; --ivl:#5bb7cd; --dur:#dcbd5a; --ours:#3cbfa2; --sealed:#27313a; --sealed-ink:#a7a193;
+  --ap:#8b7bf0; --air:#2fc4c4; --band:#1f2c37; --good:#5cc27f;
+  --bad:#e27a64; --bad-wash:#3a2420; --good-wash:#1b3326; --ours-wash:#173430;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#a97142;
+  color-scheme: dark; }
+
+body { background:var(--paper); color:var(--ink); font-family:var(--f-body); font-size:17px; line-height:1.6; }
+.page { max-width:1040px; margin:0 auto; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:40px 80px; }
+.prose { max-width:none; }
+h1, h2, h3 { font-family:var(--f-display); text-wrap:balance; line-height:1.15; margin:0; }
+h1 { font-size:clamp(1.7rem, 3.6vw, 2.4rem); font-weight:700; letter-spacing:-0.01em; }
+h2 { font-size:clamp(1.3rem, 2.6vw, 1.65rem); font-weight:700; }
+.secno { color:var(--ink3); font-weight:600; margin-right:0.6em; font-variant-numeric:tabular-nums; }
+h3 { font-size:1.15rem; font-weight:600; }
+p { margin:0; }
+.prose > * + * { margin-top:0.9em; }
+.eyebrow { font-family:var(--f-display); font-size:0.78rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink3); }
+code, .mono { font-family:var(--f-mono); font-size:0.92em; }
+code { background:var(--band); padding:0.05em 0.35em; border-radius:4px; }
+a { color:var(--ivl); }
+a:focus-visible, button:focus-visible, input:focus-visible { outline:2px solid var(--ivl); outline-offset:2px; }
+b, strong { font-weight:600; }
+
+/* hero */
+.hero { display:grid; gap:14px; padding-bottom:28px; border-bottom:1px solid var(--line); }
+.byline { font-size:1rem; color:var(--ink); font-weight:500; }
+.authors { list-style:none; padding:0; margin:0; display:grid; gap:4px; font-size:1rem; color:var(--ink); font-weight:500; }
+.authors a { margin-left:0.45em; font-weight:400; font-size:0.92rem; }
+.featured { font-size:0.95rem; color:var(--ink2); padding:10px 14px; border:1px solid var(--line); border-left:3px solid var(--wake); border-radius:8px; background:var(--card); width:fit-content; max-width:100%; }
+.titlerow { display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; }
+.titlerow h1 { flex:1 1 480px; min-width:0; }
+.demo-jump { flex:none; display:inline-flex; align-items:center; gap:8px; padding:12px 26px; border:1.5px solid var(--line); border-radius:999px; background:var(--card); color:var(--ink); font-weight:600; font-size:1.2rem; text-decoration:none; white-space:nowrap; }
+.demo-jump:hover { border-color:var(--wake); color:var(--wake); }
+.featured p { margin:0; } .featured p + p { margin-top:8px; }
+.featured ol { margin:4px 0 0; padding-left:1.4em; } .featured li + li { margin-top:4px; } .featured ol + p { margin-top:8px; }
+.byline span { display:block; color:var(--ink3); font-weight:400; font-size:0.92rem; }
+.lede { font-size:1.04rem; color:var(--ink2); max-width:none; }
+nav.toc { display:flex; flex-wrap:wrap; gap:6px 14px; padding:16px 0 0; font-size:0.92rem; }
+nav.toc a { color:var(--ink2); text-decoration:none; border-bottom:1px solid var(--line); }
+nav.toc a:hover { color:var(--ink); border-color:var(--ink3); }
+
+section { padding-top:64px; display:grid; gap:22px; }
+section > header { display:grid; gap:8px; }
+.figure { display:grid; gap:10px; }
+.figcap { font-size:0.88rem; color:var(--ink3); max-width:none; }
+.figcap b { color:var(--ink2); }
+.scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.scroll > svg, .scroll > .wide { min-width:640px; }
+svg text { font-family:var(--f-body); }
+.panel { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; }
+
+/* svg classes, so theme changes need no redraw */
+.t-ink{fill:var(--ink)} .t-ink2{fill:var(--ink2)} .t-ink3{fill:var(--ink3)}
+.t-wake{fill:var(--wake)} .t-ivl{fill:var(--ivl)} .t-dur{fill:var(--dur)} .t-ap{fill:var(--ap)} .t-air{fill:var(--air)}
+.f-band{fill:var(--band)} .f-card{fill:var(--card)} .f-navy{fill:var(--navy)} .f-dur{fill:var(--dur)} .f-wake{fill:var(--wake)}
+.f-ours{fill:var(--ours)} .f-air{fill:var(--air)} .f-sealed{fill:var(--sealed)}
+.s-line{stroke:var(--line)} .s-ink3{stroke:var(--ink3)} .s-ink{stroke:var(--ink)} .s-ivl{stroke:var(--ivl)} .s-wake{stroke:var(--wake)}
+.s-dur{stroke:var(--dur)} .s-air{stroke:var(--air)} .s-ap{stroke:var(--ap)}
+.f-s1{fill:var(--s1)} .f-s2{fill:var(--s2)} .f-s3{fill:var(--s3)} .f-s4{fill:var(--s4)} .f-s5{fill:var(--s5)} .f-s6{fill:var(--s6)}
+.t-navy-ink{fill:var(--navy-ink)} .t-navy-dim{fill:var(--navy-dim)}
+
+/* parameter and step cards */
+.terms { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+.term { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; display:grid; gap:4px; min-width:0; align-content:start; }
+.term dt { font-family:var(--f-display); font-weight:600; }
+.term dd { margin:0; color:var(--ink2); font-size:0.95rem; }
+.kind { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; }
+.kind div { border-left:3px solid var(--ivl); padding:2px 0 2px 12px; font-size:0.95rem; color:var(--ink2); min-width:0; }
+.kind div b { color:var(--ink); display:block; }
+
+/* stacks */
+.stacks { display:grid; grid-template-columns:1fr 64px 1fr; gap:0; align-items:end; }
+.stack { display:grid; gap:6px; min-width:0; }
+.stack h3 { font-size:1rem; margin-bottom:4px; }
+.layer { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:7px 11px; font-size:0.92rem; color:var(--ink2); }
+.layer.ours { background:var(--ours); border-color:var(--ours); color:var(--paper); font-weight:500; }
+.layer.sealed { background:var(--sealed); border-color:var(--sealed); color:var(--sealed-ink); }
+.layer small { display:block; font-size:0.8rem; opacity:0.85; }
+.airgap { align-self:end; text-align:center; font-size:0.72rem; color:var(--air); padding-bottom:9px; font-weight:600; letter-spacing:0.04em; }
+.legend { display:flex; flex-wrap:wrap; gap:8px 18px; font-size:0.88rem; color:var(--ink2); }
+.legend span::before { content:""; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; background:var(--sw); border:1px solid var(--line); }
+@media (max-width:640px) { .stacks { grid-template-columns:1fr; gap:18px; } .airgap { display:none; } }
+
+/* packing */
+.cmdline { background:var(--navy); color:var(--navy-ink); border-radius:10px; padding:16px 20px; font-family:var(--f-mono); font-size:clamp(1rem, 2.4vw, 1.2rem); display:flex; flex-wrap:wrap; gap:6px 26px; }
+.cmdline .w{color:var(--on-navy-wake)} .cmdline .i{color:var(--on-navy-ivl)} .cmdline .d{color:var(--on-navy-dur)}
+.three { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; }
+.three div { display:grid; gap:2px; min-width:0; align-content:start; }
+.three .big { font-family:var(--f-display); font-size:1.4rem; font-weight:700; }
+.three .w .big{color:var(--wake)} .three .i .big{color:var(--ivl)} .three .d .big{color:var(--dur)}
+.three p { color:var(--ink2); font-size:0.95rem; }
+.strip { display:flex; gap:4px; }
+.cell { border:1px solid var(--line); background:var(--card); border-radius:6px; padding:7px 9px; min-width:0; display:grid; gap:1px; align-content:start; }
+.cell .k { font-size:0.74rem; color:var(--ink3); white-space:nowrap; }
+.cell .v { font-family:var(--f-mono); font-size:0.95rem; color:var(--ink); white-space:nowrap; }
+.cell .n { font-size:0.72rem; color:var(--ink3); }
+.cell.navy { background:var(--navy); border-color:var(--navy); }
+.cell.navy .k, .cell.navy .n { color:var(--navy-dim); } .cell.navy .v { color:var(--navy-ink); }
+.cell.wake { border-color:var(--wake); } .cell.wake .v { color:var(--wake); }
+.cell.ivl { border-color:var(--ivl); } .cell.ivl .v { color:var(--ivl); }
+.cell.dur { border-color:var(--dur); } .cell.dur .v { color:var(--dur); }
+.cell.dim { opacity:0.7; }
+.zoomlabel { font-family:var(--f-display); font-size:0.82rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink3); }
+
+/* trip */
+.trip { display:grid; grid-template-columns:1fr 1fr; gap:22px 34px; }
+.side { display:grid; gap:10px; align-content:start; min-width:0; }
+.side h3 { font-size:0.82rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink3); }
+.step { display:grid; grid-template-columns:34px 1fr; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:11px 13px; }
+.step .num { font-family:var(--f-display); font-weight:700; font-size:1.05rem; color:var(--ours); }
+.step.radio .num { color:var(--sealed-ink); }
+.step.radio { background:var(--sealed); border-color:var(--sealed); }
+.step b { display:block; }
+.step span { color:var(--ink2); font-size:0.94rem; }
+.airline { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px 20px; justify-content:center; font-size:0.9rem; padding:10px; border-top:2px solid var(--wake); border-bottom:2px dashed var(--air); color:var(--ink2); }
+.airline b { color:var(--wake); } .airline em { color:var(--air); font-style:normal; font-weight:600; }
+@media (max-width:700px) { .trip { grid-template-columns:1fr; } }
+
+/* tables */
+table { border-collapse:collapse; width:100%; font-size:0.92rem; font-variant-numeric:tabular-nums; }
+th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:0.78rem; color:var(--ink3); font-weight:600; letter-spacing:0.04em; }
+td.num, th.num { text-align:right; font-family:var(--f-mono); }
+.apc { color:var(--ap); } .airc { color:var(--air); }
+
+/* dashboard mock */
+.tag.ap { color:var(--on-navy-ap); } .tag.air { color:var(--on-navy-air); }
+.cycbtns { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.85rem; color:var(--ink3); }
+.results td:first-child { font-family:var(--f-mono); }
+.callout { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; display:grid; gap:6px; }
+.callout .zoomlabel { color:var(--wake); }
+.replay { width:100%; height:clamp(520px, 85vh, 980px); border:1px solid var(--line); border-radius:10px; background:var(--card); }
+.photo { display:block; width:100%; height:auto; border:1px solid var(--line); border-radius:10px; }
+.demo-video { display:block; width:100%; height:auto; aspect-ratio:16/9; background:#000; border:1px solid var(--line); border-radius:10px; }
+.demo-video::cue { font-family:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color:#fff; background:rgba(0,0,0,0.78); }
+pre.cmd { background:var(--navy); color:var(--navy-ink); padding:12px 14px; border-radius:8px; font-family:var(--f-mono); font-size:0.88rem; overflow-x:auto; margin:0; }
+@media (prefers-reduced-motion: no-preference) { button, nav.toc a { transition:background-color .15s, border-color .15s, color .15s; } }
+
+/* goal */
+table.params { min-width:520px; }
+table.params th[scope="row"] { color:var(--ink2); font-weight:600; font-size:0.86rem; letter-spacing:0; width:8.5em; white-space:nowrap; }
+table.params td { color:var(--ink2); }
+
+/* the three modified layers, lettered A to C */
+.lyr { font-family:var(--f-display); font-weight:700; letter-spacing:0.02em; }
+.layer.ours .lyr { margin-right:8px; }
+.changes { display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:14px; align-items:start; }
+.chg { background:var(--card); border:1px solid var(--line); border-top:4px solid var(--ours); border-radius:10px; padding:16px 18px; display:grid; gap:10px; min-width:0; }
+.chg header { display:flex; align-items:baseline; gap:10px; }
+.chg header .lyr { color:var(--ours); font-size:1.15rem; }
+.chg h3 { font-size:1.05rem; }
+.chg .was { font-size:0.9rem; color:var(--ink3); }
+.chg .was b { color:var(--ink2); }
+.chg ul { margin:0; padding-left:1.1em; display:grid; gap:8px; }
+.chg li { font-size:0.94rem; color:var(--ink2); }
+.chg li b { color:var(--ink); }
+.chg .where { font-size:0.8rem; color:var(--ink3); border-top:1px solid var(--line); padding-top:8px; }
+
+/* five steps on the station, stock against modified */
+.gates { display:grid; gap:8px; }
+.gate { display:grid; grid-template-columns:1.25fr 1fr 1fr; gap:8px; }
+.gate.head span { font-size:0.78rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink3); padding:0 4px; }
+.gate.head .ours-h { color:var(--ours); }
+.gate .q { display:grid; grid-template-columns:34px 1fr; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; min-width:0; }
+.gate .gn { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--navy); color:var(--navy-ink); font-family:var(--f-display); font-weight:700; font-size:0.95rem; }
+.gate .q b { display:block; }
+.gate .q small { display:block; color:var(--ink3); font-size:0.82rem; margin-top:2px; }
+.gate .o { display:grid; grid-template-columns:22px 1fr; gap:6px; border-radius:8px; padding:12px 14px; font-size:0.93rem; min-width:0; align-content:start; }
+.gate .o .mark { font-weight:700; }
+.gate .o.bad { background:var(--bad-wash); color:var(--ink); }
+.gate .o.bad .mark { color:var(--bad); }
+.gate .o.good { background:var(--good-wash); color:var(--ink); }
+.gate .o.good .mark { color:var(--good); }
+.gate .o.none { border:1px dashed var(--line); color:var(--ink3); }
+@media (max-width:720px) {
+  .gate { grid-template-columns:1fr; }
+  .gate.head { display:none; }
+  .gate .o.bad::before, .gate .o.none::before { content:"Stock"; grid-column:1 / -1; font-size:0.72rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink3); }
+  .gate .o.good::before { content:"Modified"; grid-column:1 / -1; font-size:0.72rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--ours); }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <div class="eyebrow">Testbed demo · Wi-Fi HaLow (IEEE 802.11ah) · 908 MHz</div>
+  <div class="titlerow">
+    <h1>AP-Driven Target Wake Time on Wi-Fi HaLow Hardware</h1>
+    <a class="demo-jump" href="#video">▶ Demo video (5 min)</a>
+  </div>
+  <ul class="authors" aria-label="Authors">
+    <li>Marcelo M. Carvalho (PI)<a href="mailto:mmcarvalho@txstate.edu">mmcarvalho@txstate.edu</a></li>
+    <li>Ahmed Maksud<a href="mailto:poy18@txstate.edu">poy18@txstate.edu</a></li>
+    <li>Sandeep Sudula<a href="mailto:bxk30@txstate.edu">bxk30@txstate.edu</a></li>
+    <li>Rishita Kundu<a href="mailto:rishita.kundu@txstate.edu">rishita.kundu@txstate.edu</a></li>
+  </ul>
+  <p class="byline"><span>SHINE Lab, Texas State University</span></p>
+  <p class="lede">Target Wake Time (TWT) lets an access point (AP) and a station (STA) agree on when the STA wakes up to exchange traffic, so that it can sleep for the rest of the time.
+  In stock Wi-Fi HaLow software, the STA proposes its own TWT schedule when it associates and keeps it for the life of the link.
+  In this testbed, the AP alone sets the TWT schedule of every associated STA and changes it at run time, over the air, without re-association.
+  A separate sniffer then verifies from the air that every STA transmits inside its assigned service period (SP).</p>
+  <div class="featured">
+    <p>Featured in Texas State University News: <a href="https://news.txst.edu/research-and-innovation/2026/txst-researcher-explores-a-smarter-future-for-home-wi-fi.html" target="_blank" rel="noopener">TXST researcher explores a smarter future for home Wi-Fi</a></p>
+    <p>Our papers on agentic TWT scheduling:</p>
+    <ol>
+      <li><a href="https://doi.org/10.1109/ICCCN69946.2026.11662818" target="_blank" rel="noopener">Deep Reinforcement Learning-based Dynamic TWT Scheduling for Heterogeneous Wi-Fi Networks</a>, ICCCN 2026 [<a href="https://github.com/ahmedmaksud/802.11ax-DRL-TWT-ICCCN26" target="_blank" rel="noopener">repo</a>]</li>
+      <li><a href="https://doi.org/10.1145/3842432.3843784" target="_blank" rel="noopener">Co-Designing TWT Scheduling and RF Energy Harvesting for Sustainable Heterogeneous Wi-Fi: A Deep Reinforcement Learning Approach</a>, MobiArch 2026 [<a href="https://github.com/ahmedmaksud/PowerCast-TWT-DRL-DynamicTraffic--MobiArch26" target="_blank" rel="noopener">repo</a>]</li>
+    </ol>
+    <p>For the code of this testbed, please contact the PI, <a href="mailto:mmcarvalho@txstate.edu">Marcelo M. Carvalho</a>.</p>
+  </div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#primer">1. Background</a><a href="#goal">2. Objective</a><a href="#bench">3. Testbed</a><a href="#packing">4. TWT Setup frame</a><a href="#sending">5. Signalling path</a><a href="#reading">6. Frame handling at the STA</a><a href="#applying">7. Schedule in effect</a><a href="#checking">8. Over-the-air verification</a><a href="#video">9. Demo video</a><a href="#dashboard">10. Dashboard</a>
+  </nav>
+</header>
+
+<!-- ============================================================ PRIMER -->
+<section id="primer">
+  <header>
+    <h2><span class="secno">1</span>Background: Target Wake Time</h2>
+  </header>
+  <div class="prose">
+    <p>A low-duty-cycle IoT device spends most of its energy in idle listening, i.e., keeping its receiver 'ON' while no traffic is addressed to it.
+    Target Wake Time (TWT) lets the AP and a STA agree on a schedule of service periods (SPs) instead.
+    The STA wakes up at the start of its SP, exchanges its traffic with the AP, and remains in sleep state until the next SP.</p>
+    <p>TWT was first introduced in IEEE 802.11ah (Wi-Fi HaLow), the sub-1 GHz Wi-Fi standard for long-range, low-power IoT, and was later adopted by IEEE 802.11ax (Wi-Fi 6).
+    A TWT agreement is defined by three parameters, as illustrated in Fig. 1.</p>
+  </div>
+
+  <div class="figure">
+    <div class="scroll">
+    <svg viewBox="0 0 960 230" role="img" aria-label="Radio state of one station over three seconds: receiver on continuously without TWT, and awake for 65.28 ms every second with TWT">
+      <!-- axis: 3 s from x=90 to x=930 -> 0.28 px per ms -->
+      <text x="0" y="52" class="t-ink2" font-size="14">Without TWT</text>
+      <rect x="90" y="36" width="840" height="24" rx="3" class="f-band"/>
+      <text x="510" y="53" text-anchor="middle" class="t-ink2" font-size="13">receiver on continuously (idle listening)</text>
+
+      <text x="0" y="132" class="t-ink2" font-size="14">With TWT</text>
+      <line x1="90" y1="128" x2="930" y2="128" class="s-line" stroke-width="2" stroke-dasharray="4 5"/>
+      <text x="600" y="152" class="t-ink3" font-size="12">sleep</text>
+      <rect x="136.5" y="116" width="18.3" height="24" rx="2" class="f-dur"/>
+      <rect x="416.5" y="116" width="18.3" height="24" rx="2" class="f-dur"/>
+      <rect x="696.5" y="116" width="18.3" height="24" rx="2" class="f-dur"/>
+      <!-- wake time bracket: 0 -> 166 ms -->
+      <line x1="90" y1="100" x2="136.5" y2="100" class="s-wake" stroke-width="2"/>
+      <line x1="90" y1="94" x2="90" y2="106" class="s-wake" stroke-width="2"/>
+      <line x1="136.5" y1="94" x2="136.5" y2="106" class="s-wake" stroke-width="2"/>
+      <text x="92" y="88" class="t-wake" font-size="13" font-weight="600">target wake time 166 ms</text>
+      <!-- interval bracket -->
+      <line x1="136.5" y1="170" x2="416.5" y2="170" class="s-ivl" stroke-width="2"/>
+      <line x1="136.5" y1="163" x2="136.5" y2="177" class="s-ivl" stroke-width="2"/>
+      <line x1="416.5" y1="163" x2="416.5" y2="177" class="s-ivl" stroke-width="2"/>
+      <text x="276.5" y="192" text-anchor="middle" class="t-ivl" font-size="13" font-weight="600">wake interval 1 s</text>
+      <!-- duration label -->
+      <line x1="434.8" y1="118" x2="470" y2="96" class="s-dur" stroke-width="1.5"/>
+      <text x="474" y="94" class="t-dur" font-size="13" font-weight="600">minimum wake duration 65.28 ms (one SP)</text>
+      <!-- axis -->
+      <line x1="90" y1="210" x2="930" y2="210" class="s-line" stroke-width="1"/>
+      <g class="t-ink3" font-size="12">
+        <text x="90" y="226" text-anchor="middle">0 s</text><text x="370" y="226" text-anchor="middle">1 s</text>
+        <text x="650" y="226" text-anchor="middle">2 s</text><text x="930" y="226" text-anchor="middle">3 s</text>
+      </g>
+    </svg>
+    </div>
+    <p class="figcap"><b>Fig. 1.</b> Radio state of one STA of this testbed over 3 s, drawn to scale.
+    A minimum wake duration of 65.28 ms in a 1 s wake interval corresponds to a duty cycle of 6.5%.</p>
+  </div>
+
+  <dl class="terms">
+    <div class="term"><dt style="color:var(--wake)">Target wake time</dt><dd>The start of the SP, in microseconds on the AP's TSF timer.
+    With a wake interval of 1 s, it acts as an offset within each second.</dd></div>
+    <div class="term"><dt style="color:var(--ivl)">Wake interval</dt><dd>The time between the starts of two consecutive SPs.
+    After the first SP, the STA computes every next wake time itself by adding the interval.</dd></div>
+    <div class="term"><dt style="color:var(--dur)">Minimum wake duration</dt><dd>The minimum time the STA stays awake from the start of each SP, i.e., the nominal length of the SP.</dd></div>
+  </dl>
+
+  <div class="prose">
+    <p>In the stock software of this platform, TWT is negotiated only once, at association.
+    The STA is the TWT requester: it proposes the parameters in its Association Request, the AP responds in the Association Response, and the agreement then holds for the life of the link.
+    Other TWT mechanisms that could change a schedule from the AP side, such as broadcast TWT or TWT Information frames, are not implemented in this stack.
+    Hence, the AP has no means to push a new TWT schedule to an associated STA.</p>
+    <p>This is the gap that the testbed addresses.
+    The AP sends a new TWT schedule to an associated STA at any time, and the STA adopts it without re-association.
+    Since the AP is the only node that observes all the STAs, it is the natural place for the scheduling decision, e.g., assigning non-overlapping SPs, grouping STAs into a shared SP, or shortening the SPs.</p>
+  </div>
+
+  <div class="panel">
+    <div class="zoomlabel" style="margin-bottom:10px">TWT mode used in this testbed</div>
+    <div class="kind">
+      <div><b>Individual</b>one agreement per STA, not a broadcast schedule</div>
+      <div><b>Implicit</b>the STA computes each next wake time by adding the wake interval</div>
+      <div><b>Announced</b>the STA signals the AP that it is awake at the start of an SP</div>
+      <div><b>Non-trigger-enabled</b>inside its SP, a STA accesses the channel by regular contention</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ GOAL -->
+<section id="goal">
+  <header>
+    <h2><span class="secno">2</span>Objective: unilateral TWT over the air</h2>
+  </header>
+  <div class="prose">
+    <p>The objective of this testbed is <b>unilateral TWT over the air</b>: the AP alone decides the TWT schedule of each STA and can change it at any time by sending a TWT Setup frame to that STA.
+    The STA neither requests nor negotiates the new schedule, and it remains associated throughout.</p>
+    <p>To achieve this, we modified the host software on both sides: one layer on the AP and two layers on the STA, as described in Section 3.
+    The firmware of the MM6108 radio chip, which executes the sleep/wake timing, is left untouched.
+    An updated schedule is installed in it through the same interface as a schedule negotiated at association.</p>
+  </div>
+</section>
+
+<!-- ============================================================ BENCH -->
+<section id="bench">
+  <header>
+    <h2><span class="secno">3</span>Testbed</h2>
+  </header>
+  <div class="prose">
+    <p>The testbed consists of one AP, one sniffer, six STAs and a host computer.
+    All eight radios use the same chip, the Morse Micro MM6108.
+    The difference is in the host processor: the AP and the sniffer each contain a Raspberry Pi 4 running OpenWrt Linux, whereas each STA is driven by an STM32U585 microcontroller running FreeRTOS.
+    Each STA continuously sends UDP uplink traffic to the AP, about 1 Mbit/s, so that every SP carries traffic and the schedule can be observed on air.
+    Table 1 lists the testbed parameters.</p>
+  </div>
+  <div class="figure">
+    <p class="figcap"><b>Table 1.</b> Testbed parameters.</p>
+    <div class="scroll">
+    <table class="params">
+      <tbody>
+        <tr><th scope="row">AP</th><td>Morse Micro MM6108-EKH01 (Raspberry Pi 4 + MM6108 over SDIO), OpenWrt 23.05.5 (Morse 2.8.5), patched <span class="mono">morse.ko</span> driver</td></tr>
+        <tr><th scope="row">Sniffer</th><td>a second EKH01 on the same image, in monitor mode (receive only)</td></tr>
+        <tr><th scope="row">STAs</th><td>6 × Morse Micro MM6108-EKH05 (STM32U585 + MM6108 over SPI), FreeRTOS, MM-IoT-SDK 2.13.1 with our patches, each on its own power bank</td></tr>
+        <tr><th scope="row">Host</th><td>Raspberry Pi 4; runs the scripts and the dashboard</td></tr>
+        <tr><th scope="row">Channel</th><td>908 MHz, 8 MHz bandwidth (US band)</td></tr>
+        <tr><th scope="row">BSS</th><td>SSID <span class="mono">MorseMicroTWT</span>, open security, beacon interval 100 TU (102.4 ms)</td></tr>
+        <tr><th scope="row">TWT schedule</th><td>wake interval 1 s; minimum wake duration 65.28 ms (16.38 ms in cfg4)</td></tr>
+        <tr><th scope="row">Traffic</th><td>UDP uplink (iperf) from every STA to the AP, about 1 Mbit/s per STA</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="figure">
+    <img class="photo" src="bench.jpg" width="2000" height="1499" loading="lazy" decoding="async" alt="Six purple station boards with antennas, numbered 1 to 6 on yellow notes, stand in a row at the far end of a long table. In front, two black Morse Micro boxes with antennas sit on either side of a Raspberry Pi in a clear case, which is cabled to each of them through a USB Ethernet adapter.">
+    <p class="figcap"><b>Fig. 2.</b> The testbed on 19 November 2026.
+    Back row: the six STAs, numbered 1 to 6.
+    Front: the AP and the sniffer (two identical EKH01 units), with the host between them.</p>
+  </div>
+
+  <div class="figure">
+    <div class="scroll">
+    <svg viewBox="0 0 960 360" role="img" aria-label="Topology: a host computer wired to the access point and the sniffer; six stations reach the access point over the 908 MHz HaLow channel, and the sniffer listens to that channel">
+      <!-- host -->
+      <rect x="350" y="10" width="260" height="58" rx="8" class="f-card s-ink" stroke-width="1.5"/>
+      <text x="480" y="34" text-anchor="middle" class="t-ink" font-size="16" font-weight="600">Host · Raspberry Pi 4</text>
+      <text x="480" y="54" text-anchor="middle" class="t-ink3" font-size="12.5">runs the scripts and the dashboard</text>
+      <!-- ethernet lines -->
+      <path d="M420 68 V100 H210 V128" fill="none" class="s-ink3" stroke-width="2"/>
+      <path d="M540 68 V100 H750 V128" fill="none" class="s-ink3" stroke-width="2"/>
+      <text x="300" y="94" text-anchor="middle" class="t-ink3" font-size="12" font-style="italic">Ethernet, own adapter</text>
+      <text x="660" y="94" text-anchor="middle" class="t-ink3" font-size="12" font-style="italic">Ethernet, own adapter</text>
+      <!-- AP -->
+      <rect x="60" y="128" width="300" height="78" rx="8" class="f-navy"/>
+      <text x="80" y="153" class="t-navy-ink" font-size="16" font-weight="600">AP · "mmap"</text>
+      <text x="80" y="174" class="t-navy-dim" font-size="12.5">EKH01: Raspberry Pi 4 + MM6108 (SDIO)</text>
+      <text x="80" y="193" class="t-navy-dim" font-size="12.5">OpenWrt, patched morse.ko driver</text>
+      <!-- sniffer -->
+      <rect x="600" y="128" width="300" height="78" rx="8" class="f-card s-ink3" stroke-width="1.5" stroke-dasharray="6 5"/>
+      <text x="620" y="153" class="t-ink" font-size="16" font-weight="600">Sniffer · "mmsniff"</text>
+      <text x="620" y="174" class="t-ink3" font-size="12.5">EKH01, same image, monitor mode</text>
+      <text x="620" y="193" class="t-ink3" font-size="12.5">receive only, never transmits</text>
+      <!-- air -->
+      <line x1="210" y1="206" x2="210" y2="244" class="s-air" stroke-width="2.5"/>
+      <line x1="750" y1="206" x2="750" y2="244" class="s-air" stroke-width="2" stroke-dasharray="5 4"/>
+      <rect x="40" y="244" width="880" height="8" rx="4" class="f-air"/>
+      <text x="480" y="236" text-anchor="middle" class="t-air" font-size="13" font-weight="600">908 MHz · 8 MHz channel · 802.11ah · SSID MorseMicroTWT</text>
+      <!-- stations -->
+      <g font-size="14" font-weight="600" text-anchor="middle">
+        <line x1="105" y1="252" x2="105" y2="282" class="s-air" stroke-width="2"/><rect x="45" y="282" width="120" height="40" rx="7" class="f-card s-ink" stroke-width="1.2"/><text x="105" y="307" class="t-ink">sta1</text>
+        <line x1="255" y1="252" x2="255" y2="282" class="s-air" stroke-width="2"/><rect x="195" y="282" width="120" height="40" rx="7" class="f-card s-ink" stroke-width="1.2"/><text x="255" y="307" class="t-ink">sta2</text>
+        <line x1="405" y1="252" x2="405" y2="282" class="s-air" stroke-width="2"/><rect x="345" y="282" width="120" height="40" rx="7" class="f-card s-ink" stroke-width="1.2"/><text x="405" y="307" class="t-ink">sta3</text>
+        <line x1="555" y1="252" x2="555" y2="282" class="s-air" stroke-width="2"/><rect x="495" y="282" width="120" height="40" rx="7" class="f-card s-ink" stroke-width="1.2"/><text x="555" y="307" class="t-ink">sta4</text>
+        <line x1="705" y1="252" x2="705" y2="282" class="s-air" stroke-width="2"/><rect x="645" y="282" width="120" height="40" rx="7" class="f-card s-ink" stroke-width="1.2"/><text x="705" y="307" class="t-ink">sta5</text>
+        <line x1="855" y1="252" x2="855" y2="282" class="s-air" stroke-width="2"/><rect x="795" y="282" width="120" height="40" rx="7" class="f-card s-ink" stroke-width="1.2"/><text x="855" y="307" class="t-ink">sta6</text>
+      </g>
+      <text x="480" y="348" text-anchor="middle" class="t-ink3" font-size="12.5">Each STA: EKH05 board, STM32U585 microcontroller, FreeRTOS, MM6108 radio (SPI), on its own power bank</text>
+    </svg>
+    </div>
+    <p class="figcap"><b>Fig. 3.</b> Topology.
+    The host reaches the AP and the sniffer over separate Ethernet links.
+    The STAs have no wired connection: they are reachable only over the air, through the AP.</p>
+  </div>
+
+  <div class="prose">
+    <h3>Software stack and modified layers</h3>
+    <p>The MM6108 runs closed vendor firmware, which executes the sleep/wake timing and cannot be modified.
+    All our changes are therefore in the host software above the chip: one layer on the AP (A) and two layers on the STA (B and C), as shown in Fig. 4.</p>
+  </div>
+  <div class="figure">
+    <div class="stacks" role="img" aria-label="Software layers of the access point and of a station, with the three modified layers marked A, B and C">
+      <div class="stack">
+        <h3>AP (Linux)</h3>
+        <div class="layer">debugfs file <span class="mono">twt_ap_update</span><small>entry point for schedule updates; created by A</small></div>
+        <div class="layer">hostapd<small>association and BSS management; no TWT logic</small></div>
+        <div class="layer">mac80211<small>unmodified</small></div>
+        <div class="layer ours"><span class="lyr">A</span>morse.ko driver<small>builds and sends the updates, tracks every agreement</small></div>
+        <div class="layer">SDIO</div>
+        <div class="layer sealed">MM6108 firmware<small>closed</small></div>
+      </div>
+      <div class="airgap">◀ air ▶</div>
+      <div class="stack">
+        <h3>STA (FreeRTOS)</h3>
+        <div class="layer ours"><span class="lyr">B</span>mmagic agent<small>requests TWT at association; starts the uplink traffic</small></div>
+        <div class="layer">lwIP TCP/IP stack<small>unmodified</small></div>
+        <div class="layer">FreeRTOS<small>unmodified</small></div>
+        <div class="layer ours"><span class="lyr">C</span>morselib (UMAC)<small>receives the updates and applies them</small></div>
+        <div class="layer">SPI</div>
+        <div class="layer sealed">MM6108 firmware<small>closed</small></div>
+      </div>
+    </div>
+    <div class="legend"><span style="--sw:var(--ours)">modified in this work</span><span style="--sw:var(--sealed)">closed chip firmware, executes the sleep/wake timing</span><span style="--sw:var(--card)">stock</span></div>
+    <p class="figcap"><b>Fig. 4.</b> Software stack of the AP and of a STA.</p>
+  </div>
+
+  <div class="changes">
+    <article class="chg">
+      <header><span class="lyr">A</span><h3>AP driver (morse.ko)</h3></header>
+      <p class="was"><b>Stock:</b> only responds to a TWT request made by a STA.</p>
+      <ul>
+        <li><b>Control interface.</b> One line written into the debugfs file <span class="mono">twt_ap_update</span>, in the form <span class="mono">&lt;MAC&gt; &lt;wake_time_us&gt; [interval_us] [duration_us]</span>, updates the schedule of one STA while the BSS is running.</li>
+        <li><b>Unsolicited TWT Setup frame.</b> The driver encodes the new parameters into a TWT element with the setup command Accept and sends it to that STA in a TWT Setup action frame.
+        The wake-interval exponent is recomputed for every update, so that any interval is encoded correctly.</li>
+        <li><b>Commit on acknowledgement.</b> The driver applies the new parameters to a copy of the agreement and replaces its own record only when the chip reports the STA's ACK.
+        Each update is transmitted three times, one wake interval apart, and every transmission is counted as confirmed, unacknowledged or expired.</li>
+        <li><b>Observability.</b> The agreement table reports these counters.
+        The driver also provides a log of per-frame RX timestamps and a build ID that identifies the source it was built from.</li>
+      </ul>
+      <p class="where">in <span class="mono">twt.c</span>, <span class="mono">debug.c</span> and <span class="mono">mac.c</span> of the driver</p>
+    </article>
+    <article class="chg">
+      <header><span class="lyr">B</span><h3>mmagic agent (STA)</h3></header>
+      <p class="was"><b>Stock:</b> the STA does not request TWT at all.</p>
+      <ul>
+        <li><b>TWT request with Suggest.</b> At association, the STA now requests TWT with the setup command Suggest, i.e., it proposes a schedule and takes the one returned by the AP.</li>
+        <li><b>Uplink traffic at boot.</b> The STA starts its iperf UDP client at every boot and keeps it running, so that a board on a power bank, with no serial connection, always has data to send.</li>
+      </ul>
+      <p class="where">in <span class="mono">mmagic_core_wlan.c</span> and <span class="mono">mmagic_core_iperf.c</span></p>
+    </article>
+    <article class="chg">
+      <header><span class="lyr">C</span><h3>morselib, the UMAC library (STA)</h3></header>
+      <p class="was"><b>Stock:</b> a TWT Setup frame from the AP is received and dropped.</p>
+      <ul>
+        <li><b>Frame routing.</b> TWT Setup frames are now passed to the TWT module instead of the relay handler that dropped them, on an open BSS as well as on a protected one.</li>
+        <li><b>Sender check.</b> The transmitter must be the AP that the STA is associated with.
+        A frame from any other sender is dropped, so that no other device in range can change the STA's schedule.</li>
+        <li><b>Update of a live agreement.</b> An Accept received mid-session replaces the agreement and re-installs it in the radio firmware, without disconnecting.
+        This holds for any setup command the STA used at association, whereas the stock code adopted the AP's parameters only after a Suggest.</li>
+        <li><b>All three parameters.</b> The stock code adopts only the target wake time.
+        When built with <span class="mono">TWT_ADOPT=1</span>, the STA also adopts the wake interval and the minimum wake duration.</li>
+      </ul>
+      <p class="where">in <span class="mono">umac_datapath.c</span>, <span class="mono">s1g_action.c</span> and <span class="mono">umac_twt.c</span></p>
+    </article>
+  </div>
+</section>
+
+<!-- ============================================================ PACKING -->
+<section id="packing">
+  <header>
+    <h2><span class="secno">4</span>TWT Setup frame</h2>
+  </header>
+  <div class="prose">
+    <p>A schedule update starts as one line of text per STA.
+    For example, the following line places sta2 in its SP of cfg1, the configuration with six separate SPs:</p>
+  </div>
+  <div class="cmdline" aria-label="Schedule line: sta2, wake time 166000, interval 1000000, duration 65280"><span>sta2</span><span class="w">166000</span><span class="i">1000000</span><span class="d">65280</span></div>
+  <div class="three">
+    <div class="w"><span class="big">166 ms</span><p>target wake time of 166000 µs, i.e., the offset within each second</p></div>
+    <div class="i"><span class="big">1 s</span><p>wake interval of 1000000 µs</p></div>
+    <div class="d"><span class="big">65.28 ms</span><p>minimum wake duration of 65280 µs, i.e., the length of the SP</p></div>
+  </div>
+  <div class="prose">
+    <p>The AP driver encodes these values into a TWT element and sends it to the STA in a TWT Setup action frame.
+    Fig. 5 shows the frame at three levels: (A) the complete frame, (B) the TWT element, and (C) the Request Type field of the element.</p>
+  </div>
+
+  <div class="figure">
+    <div class="scroll"><div class="wide" style="display:grid; gap:14px">
+      <div class="zoomlabel">(A) TWT Setup action frame, 48 octets</div>
+      <div class="strip">
+        <div class="cell navy" style="flex:24"><span class="k">MAC header · 24</span><span class="v">Action, RA = sta2, TA = AP</span></div>
+        <div class="cell navy" style="flex:5"><span class="k">3</span><span class="v">22 · 6 · #</span></div>
+        <div class="cell wake" style="flex:17"><span class="k">TWT element · 17</span><span class="v">see (B)</span></div>
+        <div class="cell dim" style="flex:4"><span class="k">FCS</span><span class="v">4</span></div>
+      </div>
+      <p class="figcap">Category 22 (unprotected S1G), action 6 (TWT Setup), and a dialog token (#).
+      The testbed runs an open BSS; with management frame protection, the frame is protected and uses category 23 with action 4.</p>
+
+      <div class="zoomlabel">(B) TWT element, ID 216</div>
+      <div class="strip">
+        <div class="cell" style="flex:1.2"><span class="k">ID</span><span class="v">216</span><span class="n">1 octet</span></div>
+        <div class="cell" style="flex:1.2"><span class="k">Length</span><span class="v">15</span><span class="n">1</span></div>
+        <div class="cell" style="flex:1.2"><span class="k">Control</span><span class="v">flags</span><span class="n">1</span></div>
+        <div class="cell navy" style="flex:2"><span class="k">Request Type</span><span class="v">see (C)</span><span class="n">2</span></div>
+        <div class="cell wake" style="flex:3.4"><span class="k">Target Wake Time</span><span class="v" id="el-wake">166000</span><span class="n">8, in µs</span></div>
+        <div class="cell dur" style="flex:1.6"><span class="k">Min wake duration</span><span class="v" id="el-dur">255</span><span class="n">1, × 256 µs</span></div>
+        <div class="cell ivl" style="flex:1.8"><span class="k">Interval mantissa</span><span class="v" id="el-mant">62500</span><span class="n">2</span></div>
+        <div class="cell" style="flex:1.2"><span class="k">Channel</span><span class="v">0</span><span class="n">1</span></div>
+      </div>
+
+      <div class="zoomlabel">(C) Request Type field, 16 bits</div>
+      <div class="strip">
+        <div class="cell" style="flex:1"><span class="k">bit 0</span><span class="v">0</span><span class="n">a response</span></div>
+        <div class="cell navy" style="flex:2.2"><span class="k">bits 1–3 · setup command</span><span class="v">4 = Accept</span></div>
+        <div class="cell" style="flex:1"><span class="k">bit 4</span><span class="v">0</span><span class="n">trigger</span></div>
+        <div class="cell" style="flex:1"><span class="k">bit 5</span><span class="v">1</span><span class="n">implicit</span></div>
+        <div class="cell" style="flex:1"><span class="k">bit 6</span><span class="v">0</span><span class="n">announced</span></div>
+        <div class="cell" style="flex:1.4"><span class="k">bits 7–9</span><span class="v">0</span><span class="n">flow ID</span></div>
+        <div class="cell ivl" style="flex:1.6"><span class="k">bits 10–14</span><span class="v" id="el-exp">4</span><span class="n">interval exponent</span></div>
+        <div class="cell" style="flex:1"><span class="k">bit 15</span><span class="v">0</span><span class="n">protection</span></div>
+      </div>
+    </div></div>
+    <p class="figcap"><b>Fig. 5.</b> The TWT Setup frame that carries the schedule of sta2 in cfg1, with field sizes in octets.</p>
+  </div>
+
+  <div class="prose">
+    <p>Two field encodings limit the values that can be commanded.
+    The wake interval is encoded as <span style="color:var(--ivl)"><b>mantissa × 2<sup>exponent</sup></b></span>, with a 16-bit mantissa and a 5-bit exponent: 62500 × 2<sup>4</sup> gives exactly 1,000,000 µs.
+    The minimum wake duration is <span style="color:var(--dur)"><b>one octet in units of 256 µs</b></span>, hence the longest SP that can be signalled is 255 × 256 = 65,280 µs, which is the value used in this testbed.
+    The target wake time is a 64-bit value in microseconds and is not quantized.</p>
+    <p>The setup command <b>Accept</b> is normally the response of the AP to a TWT request from a STA.
+    Here, the AP sends an unsolicited Accept that carries its own parameters, and the STA adopts them.
+    This is how the AP dictates a schedule without any change to the frame format.</p>
+  </div>
+
+</section>
+
+<!-- ============================================================ SENDING -->
+<section id="sending">
+  <header>
+    <h2><span class="secno">5</span>Signalling path from the AP to the STA</h2>
+  </header>
+  <div class="prose">
+    <p>Fig. 6 follows one schedule update from the host to the radio firmware of the STA.
+    The hostapd daemon on the AP and the TCP/IP stack on the STA are not involved.
+    The driver hands the frame to mac80211 instead of sending it straight to the chip, so that it goes through the same queuing as data frames and is transmitted while the STA is awake.
+    When the frame was sent directly to the chip, which is the original path in the driver, only 2 of 20 updates were delivered, since the STA is asleep most of the time.</p>
+  </div>
+  <div class="figure">
+  <div class="trip">
+    <div class="side">
+      <h3>AP · builds and sends the update</h3>
+      <div class="step"><span class="num">1</span><div><b>Write to the control file</b><span>The host writes one line per STA into <span class="mono">twt_ap_update</span> on the AP, over SSH on its Ethernet link.</span></div></div>
+      <div class="step"><span class="num">2</span><div><b>Validation</b><span>The STA must be associated and hold a TWT agreement.
+      The driver copies that agreement and applies the new parameters to the copy.</span></div></div>
+      <div class="step"><span class="num">3</span><div><b>Frame construction</b><span>The driver sets the setup command to Accept, computes the mantissa and the exponent, and builds the action frame around the TWT element.</span></div></div>
+      <div class="step radio"><span class="num">4</span><div><b>Transmission</b><span>The frame reaches the MM6108 over the SDIO bus, and the chip transmits it to that STA.</span></div></div>
+    </div>
+    <div class="side">
+      <h3>STA · receives and applies it</h3>
+      <div class="step" style="border-style:dashed"><span class="num">0</span><div><b>Earlier, at association</b><span>The STA requested TWT with the setup command Suggest, i.e., it proposed a schedule and takes the one returned by the AP.</span></div></div>
+      <div class="step radio"><span class="num">5</span><div><b>Reception</b><span>The MM6108 acknowledges the frame on air and passes it to the host over the SPI bus.</span></div></div>
+      <div class="step"><span class="num">6</span><div><b>Routing</b><span>morselib identifies an S1G action frame of type TWT Setup and passes it to the TWT module.
+      In the stock library, the frame was dropped at this point.</span></div></div>
+      <div class="step"><span class="num">7</span><div><b>Installation</b><span>The TWT module parses the element, adopts the three parameters and installs the new agreement in the radio firmware.</span></div></div>
+    </div>
+    <div class="airline"><b>TWT Setup frame, over the air ▶</b><em>◀ ACK</em></div>
+  </div>
+  <p class="figcap"><b>Fig. 6.</b> Path of one schedule update.
+  The shaded steps are executed by the closed MM6108 firmware.</p>
+  </div>
+  <div class="prose">
+    <p>The AP commits an update only after it is acknowledged.
+    More specifically, the driver replaces its own record of a STA's schedule only when the chip reports that the STA acknowledged the frame, so that a lost frame does not leave the AP holding a schedule that the STA never received.
+    In addition, each update is transmitted three times, one wake interval apart, and the driver counts every transmission as confirmed, unacknowledged or expired.
+    These counters are shown on the dashboard (Section 10).</p>
+  </div>
+</section>
+
+<!-- ============================================================ READING -->
+<section id="reading">
+  <header>
+    <h2><span class="secno">6</span>Frame handling at the STA</h2>
+  </header>
+  <div class="prose">
+    <p>When the frame reaches morselib on the STA, it goes through five steps before the schedule changes.
+    Table 2 compares the stock library with the modified one at each step.
+    In the stock library, the frame does not pass the first step.</p>
+  </div>
+  <div class="figure">
+  <p class="figcap"><b>Table 2.</b> Handling of a TWT Setup frame on the STA, in the stock and in the modified software.</p>
+  <div class="gates" role="table" aria-label="The five steps a TWT Setup frame goes through on the station, in the stock software and in the modified software">
+    <div class="gate head" role="row"><span role="columnheader">Step</span><span role="columnheader">Stock software</span><span role="columnheader" class="ours-h">Modified software</span></div>
+    <div class="gate" role="row">
+      <div class="q" role="cell"><span class="gn">1</span><div><b>Is it a TWT Setup frame?</b><small>category 22, action 6 on this open BSS; category 23, action 4 with management frame protection</small></div></div>
+      <div class="o bad" role="cell"><span class="mark" aria-hidden="true">✕</span><span>Passed to the relay handler, which does not process this frame type, logs "Ignoring S1G Action frame", and drops it.</span></div>
+      <div class="o good" role="cell"><span class="mark" aria-hidden="true">✓</span><span>Passed to the TWT module.</span></div>
+    </div>
+    <div class="gate" role="row">
+      <div class="q" role="cell"><span class="gn">2</span><div><b>Was it sent by the associated AP?</b><small>transmitter address compared with the BSSID of the association</small></div></div>
+      <div class="o none" role="cell"><span class="mark" aria-hidden="true">·</span><span>not reached</span></div>
+      <div class="o good" role="cell"><span class="mark" aria-hidden="true">✓</span><span>If so, processing continues.
+      A frame from any other sender is dropped, so that no other device in range can change the STA's schedule.</span></div>
+    </div>
+    <div class="gate" role="row">
+      <div class="q" role="cell"><span class="gn">3</span><div><b>Is the setup command Accept?</b><small>an unsolicited Accept carries the schedule set by the AP</small></div></div>
+      <div class="o none" role="cell"><span class="mark" aria-hidden="true">·</span><span>not reached</span></div>
+      <div class="o good" role="cell"><span class="mark" aria-hidden="true">✓</span><span>If so, the parameters of the element are adopted, for any setup command the STA used at association.</span></div>
+    </div>
+    <div class="gate" role="row">
+      <div class="q" role="cell"><span class="gn">4</span><div><b>Which parameters are adopted?</b><small>from the TWT element (ID 216), after the dialog token</small></div></div>
+      <div class="o bad" role="cell"><span class="mark" aria-hidden="true">✕</span><span>Only the target wake time, even at association.
+      The wake interval and the minimum wake duration stay as the STA requested.</span></div>
+      <div class="o good" role="cell"><span class="mark" aria-hidden="true">✓</span><span>Target wake time, wake interval and minimum wake duration.</span></div>
+    </div>
+    <div class="gate" role="row">
+      <div class="q" role="cell"><span class="gn">5</span><div><b>Installation</b><small>the new agreement is passed to the radio firmware</small></div></div>
+      <div class="o none" role="cell"><span class="mark" aria-hidden="true">·</span><span>not reached</span></div>
+      <div class="o good" role="cell"><span class="mark" aria-hidden="true">✓</span><span>The agreement is re-installed in the firmware.
+      The STA stays associated and its traffic continues.</span></div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ============================================================ APPLYING -->
+<section id="applying">
+  <header>
+    <h2><span class="secno">7</span>From the TWT agreement to the sleep/wake schedule</h2>
+  </header>
+  <div class="prose">
+    <p>Once the agreement is installed, the timing is executed by the radio firmware.
+    The firmware keeps its TSF timer synchronized with the AP through the AP's beacons (beacon interval of 102.4 ms).
+    It wakes the radio when the TSF reaches the target wake time, keeps it awake for at least the minimum wake duration, and then returns it to sleep.
+    Every next SP starts one wake interval later, without any further signalling; this is the implicit TWT operation.</p>
+    <p>Therefore, a target wake time of 166,000 µs with a wake interval of 1 s places the SP 166 ms into every second of the AP's TSF.
+    While the STA is asleep, its uplink packets wait in a queue.
+    When it wakes up, it transmits them in a burst that occupies most of the SP, as shown in Fig. 7.</p>
+  </div>
+
+  <div class="figure">
+    <div class="scroll"><svg id="zoom" viewBox="0 0 960 190" role="img" aria-label="One service period of station 2, as captured by the sniffer"></svg></div>
+    <p class="figcap"><b>Fig. 7.</b> One SP of sta2, as captured by the sniffer on 18 November 2026.
+    Each tick is one PPDU on air.
+    The SP starts a few milliseconds after the nominal wake time (2.55 ms in this capture, the same for every STA), and the burst ends a few milliseconds before the end of the SP.</p>
+  </div>
+
+  <div class="prose">
+    <p>The demo switches among four preset configurations, all with a wake interval of 1 s.
+    Select one below to see where the SP of each STA falls within one interval (Fig. 8).</p>
+  </div>
+  <div class="panel figure">
+    <div class="cycbtns" role="group" aria-label="Select a configuration">
+      <button type="button" class="cfgbtn" data-cfg="1" aria-pressed="true">cfg1 · six separate SPs</button>
+      <button type="button" class="cfgbtn" data-cfg="2" aria-pressed="false">cfg2 · three shared SPs</button>
+      <button type="button" class="cfgbtn" data-cfg="3" aria-pressed="false">cfg3 · one shared SP</button>
+      <button type="button" class="cfgbtn" data-cfg="4" aria-pressed="false">cfg4 · short SPs</button>
+    </div>
+    <div class="scroll"><svg id="sched" viewBox="0 0 960 250" role="img" aria-label="Position of the service period of each station within one second"></svg></div>
+    <p class="figcap"><b>Fig. 8.</b> <span id="cfgtext"></span></p>
+  </div>
+  <div class="prose">
+    <p>A new schedule takes effect a few seconds after the update is sent: the STA keeps its old schedule and then switches to the new one in a single step.
+    In the runs of 18 November 2026, every schedule change settled within 3 to 6 s, without re-association: by then the AP's agreement table held the commanded wake time, interval and duration for every STA, all acknowledged.
+    However, a schedule does not survive a re-association: a STA that associates again is assigned a slot by the AP driver's own allocator, so the testbed pushes the schedule again after any restart.</p>
+  </div>
+</section>
+
+<!-- ============================================================ CHECKING -->
+<section id="checking">
+  <header>
+    <h2><span class="secno">8</span>Over-the-air verification</h2>
+  </header>
+  <div class="prose">
+    <p>The AP's agreement table only shows what the AP has stored, not what the STAs do.
+    On this testbed, the AP has reported a clean schedule while the STAs were in fact waking up at the same time.
+    Therefore, every schedule is verified from the air by a second, independent radio, in four steps.</p>
+  </div>
+  <div class="terms">
+    <div class="term"><dt>1 · Capture</dt><dd>The sniffer stays on the same channel in monitor mode and records every frame it receives, with a timestamp from its own clock.</dd></div>
+    <div class="term"><dt>2 · Timebase</dt><dd>Every beacon carries the AP's TSF, so a linear fit over the beacons of a capture (about 135 in 25 s) converts the sniffer's timestamps to AP time, with a residual of a few microseconds.</dd></div>
+    <div class="term"><dt>3 · Folding</dt><dd>The timestamp of every data frame is converted to AP time and folded modulo the 1 s wake interval, per STA.</dd></div>
+    <div class="term"><dt>4 · Scoring</dt><dd>(i) Does the complete burst of each STA, including the airtime of its last PPDU, fit inside its SP? (ii) What fraction of its data frames falls inside the SP?</dd></div>
+  </div>
+  <div class="panel">
+    <p class="figcap" style="margin-bottom:8px"><b>Table 3.</b> Off-air results of 18 November 2026, 25 s per capture.</p>
+    <div class="scroll">
+    <table class="results">
+      <thead><tr><th>Configuration</th><th>Schedule</th><th class="num">STAs inside their SP</th><th class="num">Data inside the SP</th></tr></thead>
+      <tbody>
+        <tr><td>cfg1</td><td>six STAs, six separate SPs</td><td class="num">6 / 6</td><td class="num">97.9 to 98.0%</td></tr>
+        <tr><td>cfg2</td><td>three pairs, each sharing an SP</td><td class="num">5 / 5 scored</td><td class="num">98.0%</td></tr>
+        <tr><td>cfg3</td><td>all six in one SP</td><td class="num">5 / 5 scored</td><td class="num">97.5%</td></tr>
+        <tr><td>cfg4</td><td>six SPs shortened to 16.38 ms</td><td class="num">6 / 6</td><td class="num">97.7%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="figcap" style="margin-top:10px">STAs that share an SP contend with each other, so in cfg2 and cfg3 one STA obtained much less airtime than the others and produced too few frames to be scored.
+    The 2 to 3% of the data outside the SP are frames just ahead of its estimated start, which is anchored at the 2nd percentile of each STA's frames; no data frame was observed past the end of an SP.</p>
+  </div>
+</section>
+
+<!-- ============================================================ VIDEO -->
+<section id="video">
+  <header>
+    <h2><span class="secno">9</span>Demo video</h2>
+  </header>
+  <div class="prose">
+    <p>The video shows the testbed in operation: the AP and the sniffer, the six STAs, and the dashboard.
+    The AP switches all six STAs from one configuration to another.
+    Each STA turns on its blue LED during its SP, so the LEDs follow the schedule.</p>
+  </div>
+  <div class="figure">
+    <video class="demo-video" controls preload="metadata" playsinline poster="demo-poster.jpg" width="1920" height="1080">
+      <source src="demo.mp4" type="video/mp4">
+      <track kind="captions" src="demo.vtt" srclang="en" label="English" default>
+      <p>This browser cannot play the video here; <a href="demo.mp4">download it</a> instead.</p>
+    </video>
+    <p class="figcap">Recorded on 19 November 2026 and played at 1.15× speed.
+    Captions are on by default; the player's captions button turns them off.</p>
+  </div>
+</section>
+
+<!-- ============================================================ DASHBOARD -->
+<section id="dashboard">
+  <header>
+    <h2><span class="secno">10</span>Live dashboard</h2>
+  </header>
+  <div class="prose">
+    <p>The dashboard runs on the host and shows two views of the network side by side: <span class="apc"><b>the AP's own state, in indigo</b></span>, and <span class="airc"><b>what the sniffer captured on air, in teal</b></span>.
+    A schedule is taken to be in effect only where the two agree.
+    Each STA keeps the same colour in every panel.</p>
+    <p>The dashboard listens only on the host itself, since its buttons reconfigure the radios without any login.
+    To view it from another machine, forward the port over SSH and open <code>http://localhost:8787</code>:</p>
+  </div>
+  <pre class="cmd">ssh -N -L 8787:127.0.0.1:8787 &lt;user&gt;@&lt;host&gt;</pre>
+
+  <div class="figure">
+    <div class="zoomlabel">Recorded session, replayed in the dashboard</div>
+    <iframe class="replay" src="dashboard-replay.html" title="The dashboard replaying a recorded session of the testbed"></iframe>
+    <p class="figcap"><b>Fig. 9.</b> A session of almost five minutes, recorded on 19 November 2026 and replayed in the actual dashboard with the data it displayed.
+    It starts in cfg1 and switches to cfg2 at 0:50, cfg3 at 1:50, cfg4 at 2:50, and back to cfg1 at 3:50.
+    The bar at the top plays, pauses, or jumps to a chapter, and each configuration button jumps to where that configuration was applied.
+    The replay can also be <a href="dashboard-replay.html" target="_blank" rel="noopener">opened on its own page</a> at full size.
+    In cfg3, all six STAs share one SP, so the dashboard's 6 s capture rarely contains enough frames from any one STA to score it.</p>
+  </div>
+
+</section>
+
+<section id="next" style="padding-top:56px">
+  <div class="callout">
+    <div class="zoomlabel">Future work</div>
+    <p>The testbed currently switches among preset configurations.
+    The next step is to put a learned scheduler in control of it: a policy trained in simulation selects the TWT schedule, and the same one-line-per-STA interface delivers it to the STAs.
+    The energy saving of a schedule has not been measured on the boards yet; this requires a current measurement at a STA and is planned next.</p>
+  </div>
+</section>
+
+</div>
+
+<script>
+const SCOPE={"origin_ms":2.55,"stations":[{"name":"sta1","wake_ms":0.0,"occ":58.38,"inpct":100.0,"ticks":[[10.8,2.21],[14.6,1.84],[18.9,1.48],[22.7,1.48],[30.4,1.84],[34.0,2.21],[37.7,2.58],[46.1,3.67],[51.4,1.84],[59.7,1.48],[1006.8,1.84],[1010.6,2.21],[1014.2,1.84],[1018.0,1.84],[1021.8,1.13],[1024.7,1.84],[1029.0,1.48],[1032.3,1.84],[1040.3,1.84],[1044.5,1.84],[1048.4,1.84],[1051.4,2.21],[1055.4,1.48],[1059.4,1.48],[2011.0,2.21],[2015.2,2.94],[2019.3,2.21],[2022.7,2.21],[2026.5,1.84],[2029.6,2.21],[2033.2,2.21],[2036.6,2.21],[2039.9,1.84],[2043.3,2.21],[2047.4,2.21],[2051.0,2.21],[2055.1,2.21],[2059.3,2.58],[2062.7,1.48],[3005.1,1.48],[3007.9,2.21],[3015.9,4.04],[3022.0,2.21],[3025.8,2.21],[3030.5,1.84],[3037.6,2.21],[3042.2,1.84],[3045.1,2.21],[3049.0,2.58],[3052.5,2.94],[3056.2,2.94],[3059.9,2.21],[4004.0,2.21],[4007.4,1.84],[4010.5,1.84],[4014.3,2.94],[4018.1,1.48],[4021.6,1.48],[4024.8,1.48],[4028.5,2.58],[4031.7,1.84],[4039.2,2.58],[4044.3,1.48],[4048.4,1.84],[4052.0,2.58],[4055.9,2.21],[4059.1,3.31]]},{"name":"sta2","wake_ms":166.0,"occ":61.56,"inpct":98.7,"ticks":[[168.9,1.48],[170.8,2.21],[173.7,2.58],[177.1,3.31],[180.9,2.94],[184.6,2.94],[188.0,2.21],[192.1,3.31],[195.6,1.48],[199.5,2.21],[202.5,2.94],[206.1,3.31],[209.7,2.21],[213.1,2.21],[216.3,2.94],[220.4,3.31],[224.9,1.48],[1168.4,1.84],[1172.9,2.58],[1177.1,4.04],[1181.9,3.67],[1186.9,3.31],[1191.3,3.67],[1195.2,2.58],[1198.8,3.31],[1202.8,2.94],[1206.2,2.94],[1210.4,2.94],[1214.5,2.94],[1218.5,3.31],[1222.2,2.94],[1226.1,2.58],[2170.7,1.84],[2173.7,2.94],[2177.6,2.58],[2182.1,3.31],[2187.0,2.94],[2190.7,2.94],[2196.8,3.31],[2201.5,4.04],[2206.1,3.31],[2210.3,3.31],[2214.0,2.94],[2217.4,3.31],[2221.1,1.84],[2224.2,2.21],[2227.3,1.48],[3168.7,1.48],[3170.2,2.58],[3173.4,2.21],[3176.6,2.94],[3180.7,2.94],[3184.8,3.31],[3188.8,3.31],[3192.7,2.58],[3196.7,2.58],[3200.4,2.58],[3203.5,3.31],[3207.2,2.58],[3211.4,2.58],[3215.0,2.94],[3220.9,4.76],[3226.5,2.94],[4169.0,1.48],[4171.1,1.84],[4174.0,2.94],[4177.5,2.58],[4181.7,3.67],[4186.0,2.58],[4189.9,2.94],[4193.9,2.21]]},{"name":"sta3","wake_ms":333.0,"occ":61.48,"inpct":98.0,"ticks":[[335.5,1.84],[338.3,3.31],[342.0,1.48],[343.9,1.48],[345.8,1.48],[347.9,2.94],[353.1,6.22],[359.7,1.84],[361.9,4.4],[366.5,1.84],[368.6,6.96],[376.1,3.67],[380.4,1.48],[383.0,1.48],[384.6,5.86],[390.7,4.76],[1335.7,1.84],[1337.5,2.21],[1340.3,3.31],[1344.0,1.48],[1346.6,1.48],[1348.9,1.48],[1351.3,6.96],[1359.0,4.76],[1364.2,1.48],[1366.1,2.94],[1369.2,1.84],[1371.6,1.84],[1376.8,6.96],[1384.3,4.04],[1388.8,1.48],[1390.7,4.4],[1395.5,1.48],[2335.4,1.84],[2337.4,2.21],[2343.3,3.31],[2347.2,3.67],[2351.8,3.31],[2355.9,3.67],[2360.5,4.4],[2365.7,1.84],[2368.3,1.48],[2370.2,5.86],[2377.0,1.48],[2378.6,4.76],[2383.9,5.86],[2390.1,2.58],[2392.9,4.04],[3336.0,1.84],[3338.6,2.58],[3341.9,4.76],[3347.2,1.48],[3349.2,4.4],[3354.4,1.48],[3356.5,6.96],[3364.5,5.86],[3370.8,1.84],[3372.8,1.48],[3374.9,4.76],[3379.6,6.59],[3387.1,5.5],[3393.3,3.67]]},{"name":"sta4","wake_ms":500.0,"occ":61.67,"inpct":97.9,"ticks":[[502.3,1.84],[504.3,2.21],[507.0,2.58],[509.7,3.31],[513.8,3.31],[517.9,3.67],[522.9,3.67],[527.2,3.67],[531.0,3.67],[534.9,3.67],[538.7,2.94],[542.3,2.94],[545.6,2.94],[548.7,2.94],[552.1,3.31],[558.3,4.4],[1503.0,1.84],[1505.7,2.58],[1508.4,3.67],[1512.8,3.31],[1516.8,4.04],[1521.4,3.31],[1529.2,2.58],[1532.1,3.31],[1536.1,3.31],[1539.7,3.31],[1543.6,3.31],[1547.0,3.31],[1551.1,3.31],[1554.9,3.31],[1558.3,2.94],[1562.3,1.84],[2504.8,3.31],[2508.7,3.31],[2512.7,3.67],[2516.7,4.4],[2521.6,2.94],[2525.0,3.67],[2529.1,2.58],[2531.9,3.31],[2536.1,3.67],[2540.5,3.67],[2544.4,3.67],[2548.9,2.94],[2552.0,3.67],[2555.9,3.67],[2559.9,2.94],[3502.5,1.84],[3504.5,2.21],[3507.2,2.58],[3510.0,3.31],[3513.8,3.31],[3517.7,3.67],[3521.5,2.58],[3527.2,4.76],[3532.5,4.04],[3537.4,4.04],[3541.7,3.67],[3550.9,6.22],[3557.7,5.5]]},{"name":"sta5","wake_ms":666.0,"occ":61.79,"inpct":97.0,"ticks":[[668.5,1.84],[671.0,2.21],[674.0,3.31],[681.9,4.04],[686.1,2.94],[689.4,2.94],[693.0,2.94],[696.3,2.94],[700.1,3.31],[703.5,3.67],[707.9,3.31],[711.9,3.67],[716.3,2.94],[719.9,3.67],[724.2,4.04],[728.5,1.48],[1668.6,1.84],[1670.5,2.21],[1673.2,2.94],[1676.8,3.31],[1680.4,1.84],[1685.0,4.76],[1690.0,4.76],[1695.3,3.67],[1699.7,3.31],[1703.4,3.67],[1707.9,2.94],[1710.9,3.31],[1714.5,3.31],[1718.3,3.67],[1722.4,2.94],[1726.0,3.31],[2668.6,1.48],[2670.7,2.58],[2673.4,2.94],[2676.7,3.31],[2680.4,3.67],[2684.9,2.94],[2688.3,3.31],[2692.4,3.67],[2696.7,3.31],[2700.3,3.31],[2704.4,1.84],[2709.0,5.86],[2714.7,4.4],[2719.7,4.04],[2724.5,4.76],[3668.5,1.84],[3671.1,2.21],[3673.7,3.31],[3677.5,3.31],[3680.9,3.67],[3685.4,2.94],[3689.0,3.31],[3693.2,3.31],[3696.6,3.67],[3701.1,2.94],[3704.1,3.67],[3708.4,2.94],[3712.1,3.31],[3716.2,3.67],[3720.4,3.67],[3724.3,3.67],[3728.6,1.48]]},{"name":"sta6","wake_ms":833.0,"occ":61.72,"inpct":98.2,"ticks":[[835.4,1.84],[838.0,2.21],[840.9,2.94],[843.9,3.67],[848.1,3.67],[852.5,2.94],[857.4,4.4],[864.8,5.86],[871.2,4.04],[875.5,3.31],[879.6,3.31],[883.1,4.04],[887.6,2.94],[890.7,3.31],[894.6,2.21],[1835.8,1.48],[1837.4,2.58],[1840.4,2.94],[1843.8,3.31],[1847.7,3.67],[1851.7,2.94],[1854.7,2.94],[1858.6,3.31],[1862.4,2.94],[1866.1,3.31],[1870.1,2.94],[1873.8,3.31],[1877.5,4.04],[1882.0,3.31],[1888.8,5.13],[1894.3,2.94],[2836.0,1.84],[2838.2,2.58],[2841.0,3.31],[2844.7,3.31],[2848.2,3.67],[2852.6,2.58],[2855.4,3.31],[2859.1,3.31],[2863.0,2.94],[2866.2,3.31],[2870.1,2.94],[2873.7,2.94],[2877.5,2.94],[2881.0,3.67],[2885.1,3.31],[2888.9,3.67],[2893.0,3.31],[3836.2,1.84],[3838.6,2.21],[3841.2,2.94],[3844.6,2.94],[3848.6,3.67],[3853.0,3.31],[3856.5,3.67],[3860.4,2.94],[3864.2,3.31],[3867.9,2.94],[3871.4,3.31],[3875.6,2.58],[3878.3,3.31],[3882.3,3.31],[3886.4,3.31],[3890.2,3.67],[3894.5,2.58]]}]};
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const STA = ["sta1","sta2","sta3","sta4","sta5","sta6"];
+  function el(tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+
+  /* ---------- the four preset configurations ---------- */
+  const CFG = {
+    1: { wake:[0,166,333,500,666,833], dur:65.28, text:"cfg1: six non-overlapping SPs, one STA in each, so no two STAs contend with each other. Measured: 6 of 6 STAs inside their SPs." },
+    2: { wake:[0,0,333,333,666,666], dur:65.28, text:"cfg2: three SPs, each shared by two STAs that contend inside it." },
+    3: { wake:[0,0,0,0,0,0], dur:65.28, text:"cfg3: one SP of 65.28 ms, shared by all six STAs." },
+    4: { wake:[0,166,333,500,666,833], dur:16.384, text:"cfg4: six non-overlapping SPs shortened to 16.38 ms, which is shorter than the usual burst of a STA, so the SP limits the burst. Measured: each burst shortened to 12 to 13 ms and stayed inside its SP." }
+  };
+  function drawSched(n) {
+    const svg = document.getElementById("sched"); clear(svg);
+    const x0 = 70, x1 = 945, sc = (x1 - x0) / 1000, row = 32, top = 14;
+    for (let ms = 0; ms <= 1000; ms += 100) {
+      const x = x0 + ms * sc;
+      svg.appendChild(el("line", { x1:x, x2:x, y1:top - 4, y2:top + 6 * row, class:"s-line", "stroke-width":1 }));
+      if (ms % 200 === 0) svg.appendChild(el("text", { x:x, y:top + 6 * row + 20, "text-anchor":"middle", class:"t-ink3", "font-size":12 }, ms === 1000 ? "1 s" : ms + " ms"));
+    }
+    const c = CFG[n];
+    STA.forEach((s, i) => {
+      const y = top + i * row;
+      svg.appendChild(el("text", { x:0, y:y + 20, class:"t-ink2", "font-size":13 }, s));
+      svg.appendChild(el("rect", { x:x0, y:y + 6, width:x1 - x0, height:row - 12, rx:3, class:"f-band" }));
+      svg.appendChild(el("rect", { x:x0 + c.wake[i] * sc, y:y + 4, width:Math.max(c.dur * sc, 2), height:row - 8, rx:2, class:"f-s" + (i + 1) }));
+    });
+    svg.appendChild(el("text", { x:x1, y:top + 6 * row + 40, "text-anchor":"end", class:"t-ink3", "font-size":12 }, "SP of " + c.dur + " ms every 1 s, on the AP's TSF"));
+    document.getElementById("cfgtext").textContent = c.text;
+    document.querySelectorAll(".cfgbtn").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cfg === String(n))));
+  }
+
+  /* ---------- one service period, zoomed (measured data, sta2 first cycle) ---------- */
+  function drawZoom() {
+    const svg = document.getElementById("zoom"); clear(svg);
+    const s = SCOPE.stations[1], a0 = 150, a1 = 250, x0 = 40, x1 = 940, sc = (x1 - x0) / (a1 - a0);
+    const X = ms => x0 + (ms - a0) * sc;
+    const w0 = s.wake_ms + SCOPE.origin_ms, w1 = w0 + 65.28;
+    for (let ms = 150; ms <= 250; ms += 10) {
+      svg.appendChild(el("line", { x1:X(ms), x2:X(ms), y1:40, y2:132, class:"s-line", "stroke-width":1 }));
+      svg.appendChild(el("text", { x:X(ms), y:152, "text-anchor":"middle", class:"t-ink3", "font-size":12 }, ms + " ms"));
+    }
+    svg.appendChild(el("rect", { x:X(w0), y:56, width:(w1 - w0) * sc, height:60, rx:3, class:"f-band s-ink3", "stroke-width":1, "stroke-dasharray":"4 3" }));
+    svg.appendChild(el("line", { x1:X(166), x2:X(166), y1:30, y2:132, class:"s-wake", "stroke-width":2 }));
+    svg.appendChild(el("text", { x:X(166) - 6, y:26, "text-anchor":"end", class:"t-wake", "font-size":13, "font-weight":600 }, "target wake time 166 ms"));
+    svg.appendChild(el("text", { x:X(w0) + 6, y:50, class:"t-dur", "font-size":13, "font-weight":600 }, "SP, 65.28 ms"));
+    let last = 0;
+    s.ticks.filter(([t]) => t < 400).forEach(([t, w]) => {
+      svg.appendChild(el("rect", { x:X(t), y:68, width:Math.max(w * sc, 2), height:36, rx:1, class:"f-s2" }));
+      last = Math.max(last, t + w);
+    });
+    svg.appendChild(el("line", { x1:X(last), x2:X(w1), y1:126, y2:126, class:"s-dur", "stroke-width":2 }));
+    svg.appendChild(el("text", { x:X(w1) + 6, y:130, class:"t-dur", "font-size":12.5 }, "margin"));
+    svg.appendChild(el("text", { x:x1, y:180, "text-anchor":"end", class:"t-ink3", "font-size":12 }, "each tick: one PPDU from sta2"));
+  }
+
+  function start() {
+    drawSched(1); drawZoom();
+    document.querySelectorAll(".cfgbtn").forEach(b => b.addEventListener("click", () => drawSched(Number(b.dataset.cfg))));
+  }
+  start();
+})();
+</script>
+
+</body>
+</html>
