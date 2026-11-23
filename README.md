@@ -2,7 +2,7 @@
 
 A walkthrough of an AP-driven, unilateral Target Wake Time testbed on Wi-Fi HaLow (IEEE 802.11ah) hardware, with a recorded session of its live dashboard.
 
-**Open it:** https://ahmedmaksud.github.io/halow-twt-demo/
+**Open it:** https://txst-shine-lab.github.io/halow-twt-demo/
 
 - `index.html` is the walkthrough.
 - `dashboard-replay.html` is the testbed's real dashboard, replaying a recorded session; the walkthrough shows it in a frame.
