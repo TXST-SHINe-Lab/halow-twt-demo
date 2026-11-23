@@ -9,5 +9,8 @@ A walkthrough of an AP-driven, unilateral Target Wake Time testbed on Wi-Fi HaLo
 - `demo.mp4` is a five-minute video of the bench running, with its captions in `demo.vtt` and its opening still in `demo-poster.jpg`.
 - `bench.jpg` is a photo of the bench.
 
-Marcelo M. Carvalho (PI), Ahmed Maksud, Sandeep Sudula and Rishita Kundu, SHINE Lab, Texas State University.
+Marcelo M. Carvalho (PI), Ahmed Maksud, Sandeep Sudula and Rishita Kundu
+
+SHINE Lab, Texas State University.
+
 For the code of this testbed, please contact the PI, Marcelo M. Carvalho (mmcarvalho@txstate.edu).
